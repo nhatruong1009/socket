@@ -5,15 +5,28 @@
 #include<thread>
 #define PORT "2000"
 
-void severConnect(int sever) {
+void refeshData() {
+	WORD version = MAKEWORD(2, 2);
+	WSADATA wsa;
+	int temp = WSAStartup(version, &wsa);
+	addrinfo hints;
+	addrinfo* result = nullptr;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+	int ck = getaddrinfo("206.189.157.201", "80", &hints, &result);
+	std::cout << ck;
 
-
-	closesocket(sever);
 }
 
+void clientConnect(int client) {
 
-int main(int argc,char**argv) {
-	if (argc < 2) return 0;
+
+	closesocket(client);
+}
+
+int main() {
 	WSADATA wsa;
 	addrinfo* result = nullptr;
 	addrinfo hints;
@@ -28,40 +41,51 @@ int main(int argc,char**argv) {
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
+	hints.ai_flags = AI_PASSIVE;
 
 	ck = getaddrinfo(nullptr, PORT, &hints, &result);
 	if (ck != 0) {
-		std::cout << "getaddrinfo fail: " << ck;
-		WSACleanup();
+		std::cout << "Getaddrinfo fail: " << ck;
 		return 1;
 	}
-	int connectSock;
-	for (addrinfo* ptr = result; ptr != nullptr; ptr = ptr->ai_next) {
-		connectSock = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-		if (connectSock == INVALID_SOCKET) {
-			std::cout << "Socket fail: " << WSAGetLastError();
-			WSACleanup();
-			return 1;
-		}
 
-		ck = connect(connectSock, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (ck == SOCKET_ERROR) {
-			closesocket(connectSock);
-			connectSock = INVALID_SOCKET;
-			continue;
-		}
-		break;
-	}
-	freeaddrinfo(result);
-	if (connectSock == INVALID_SOCKET) {
-		std::cout << "Unable to connect to sever\n";
+	int listenSock = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+	if (listenSock == INVALID_SOCKET) {
+		std::cout << "Listen fail: " << WSAGetLastError();
+		freeaddrinfo(result);
 		WSACleanup();
 		return 1;
 	}
 
-	std::thread conec(severConnect, connectSock);
-	conec.detach();
-	
-	conec.join();
+	ck = bind(listenSock, result->ai_addr, (int)result->ai_addrlen);
+	if (ck == SOCKET_ERROR) {
+		std::cout << "bind fail: " << WSAGetLastError();
+		freeaddrinfo(result);
+		WSACleanup();
+		return 1;
+	}
+	ck = listen(listenSock, SOMAXCONN);
+	if (ck == SOCKET_ERROR) {
+		std::cout << "listen fail: " << WSAGetLastError();
+		closesocket(listenSock);
+		WSACleanup();
+		return 1;
+	}
+	int client;
+	client = accept(listenSock, nullptr, nullptr);
+	if (client == INVALID_SOCKET) {
+		std::cout << "accept error: " << WSAGetLastError();
+		closesocket(listenSock);
+		WSACleanup();
+		return 1;
+	}
+	do {
+		std::thread conec(clientConnect, client);
+		conec.detach();
+		client = accept(listenSock, nullptr, nullptr);
+	} while (client != INVALID_SOCKET);
+
+
+	WSACleanup();
 	return 0;
 }
