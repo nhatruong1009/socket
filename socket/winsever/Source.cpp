@@ -17,7 +17,7 @@ void refeshData() {
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
-	int ck = getaddrinfo("206.189.157.201", "443", &hints, &result);
+	int ck = getaddrinfo("206.189.157.201", "80", &hints, &result);
 	std::cout << ck;
 
 	int connectSock;
@@ -45,7 +45,7 @@ void refeshData() {
 		return;
 	}
 
-	std::string k = "GET /api/request_api_key?scope=exchange_rate HTTP/2\r\nHost: vapi.vnappmob.com\r\n";
+	std::string k = "GET /api/request_api_key?scope=exchange_rate HTTP/2\r\nAccept-Language: en-US,en;q=0.5\r\nAccept - Encoding: gzip, deflate, br\r\nHost: vapi.vnappmob.com\r\nConnection: keep-alive\r\nUpgrade - Insecure - Requests: 1\r\nSec - Fetch - Dest : document\r\nSec - Fetch - Mode : navigate\r\nSec - Fetch - Site : cross - site\r\nSec - Fetch - User : ? 1\r\nCache - Control : max - age = 0";
 	char a[1024];
 	memset(a, 0, 1024);
 	send(connectSock, k.c_str(), k.length(), 0);
