@@ -5,6 +5,8 @@
 #include<thread>
 #define PORT "2000"
 
+#pragma comment (lib, "Ws2_32.lib")
+
 void refeshData() {
 	WORD version = MAKEWORD(2, 2);
 	WSADATA wsa;
@@ -15,8 +17,40 @@ void refeshData() {
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
-	int ck = getaddrinfo("206.189.157.201", "80", &hints, &result);
+	int ck = getaddrinfo("206.189.157.201", "443", &hints, &result);
 	std::cout << ck;
+
+	int connectSock;
+
+	for (addrinfo* ptr = result; ptr != nullptr; ptr = ptr->ai_next) {
+		connectSock = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+		if (connectSock == INVALID_SOCKET) {
+			std::cout << "Socket fail: " << WSAGetLastError();
+			WSACleanup();
+			return;
+		}
+
+		ck = connect(connectSock, ptr->ai_addr, (int)ptr->ai_addrlen);
+		if (ck == SOCKET_ERROR) {
+			closesocket(connectSock);
+			connectSock = INVALID_SOCKET;
+			continue;
+		}
+		break;
+	}
+	freeaddrinfo(result);
+	if (connectSock == INVALID_SOCKET) {
+		std::cout << "Unable to connect to sever\n";
+		WSACleanup();
+		return;
+	}
+
+	std::string k = "GET /api/request_api_key?scope=exchange_rate HTTP/2\r\nHost: vapi.vnappmob.com\r\n";
+	char a[1024];
+	memset(a, 0, 1024);
+	send(connectSock, k.c_str(), k.length(), 0);
+	recv(connectSock, a, 1024, 0);
+	std::cout << '\n' << a;
 
 }
 
@@ -26,7 +60,7 @@ void clientConnect(int client) {
 	closesocket(client);
 }
 
-int main() {
+int sever() {
 	WSADATA wsa;
 	addrinfo* result = nullptr;
 	addrinfo hints;
@@ -88,4 +122,8 @@ int main() {
 
 	WSACleanup();
 	return 0;
+}
+
+int main() {
+	refeshData();
 }
