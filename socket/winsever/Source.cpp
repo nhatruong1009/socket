@@ -3,6 +3,8 @@
 #include<cstring>
 #include<WS2tcpip.h>
 #include<thread>
+#include<sstream>
+#include<string>
 #define PORT "2000"
 
 #pragma comment (lib, "Ws2_32.lib")
@@ -39,19 +41,60 @@ void refeshData() {
 		break;
 	}
 	freeaddrinfo(result);
+
 	if (connectSock == INVALID_SOCKET) {
 		std::cout << "Unable to connect to sever\n";
 		WSACleanup();
 		return;
 	}
-
-	std::string k = "GET /api/request_api_key?scope=exchange_rate HTTP/2\r\nAccept-Language: en-US,en;q=0.5\r\nAccept - Encoding: gzip, deflate, br\r\nHost: vapi.vnappmob.com\r\nConnection: keep-alive\r\nUpgrade - Insecure - Requests: 1\r\nSec - Fetch - Dest : document\r\nSec - Fetch - Mode : navigate\r\nSec - Fetch - Site : cross - site\r\nSec - Fetch - User : ? 1\r\nCache - Control : max - age = 0";
 	char a[1024];
+	std::string k = "GET /api/v2/gold/doji HTTP/1.2";
 	memset(a, 0, 1024);
 	send(connectSock, k.c_str(), k.length(), 0);
+	std::cout << "\nSent\n";
 	recv(connectSock, a, 1024, 0);
 	std::cout << '\n' << a;
 
+}
+
+void GET(int socket,char*_str) {
+	std::stringstream sstr(_str);
+	std::string gold, username,date, response;
+	std::string str(_str);
+	sstr.seekg(str.find("/",str.find("GET")) + 1, sstr.beg);
+	sstr >> gold;
+	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
+	sstr >> username;
+	sstr.seekg(str.find(":", str.find("day")) + 1, sstr.beg);
+	sstr >> date;
+	std::cout << gold << " " << username << " " << date;
+
+	//check avtive accout
+	//check command
+	//give result
+
+	send(socket, response.c_str(), response.size(), 0);
+}
+
+void LOGIN(int socket, char* _str) {
+
+}
+void LOGOUT(int socket, char* _str) {
+
+}
+void REG(int socket, char* _str) {
+
+}
+
+void control(int socket, char* _str) {
+	if (strncmp(_str, "GET", 3) == 0) { GET(socket, _str); }
+	if (strncmp(_str, "IN", 3) == 0) { LOGIN(socket, _str); }
+	if (strncmp(_str, "OUT", 3) == 0) { LOGOUT(socket, _str); }
+	if (strncmp(_str, "REG", 3) == 0) { REG(socket, _str); }
+	else {
+		std::string k = "ERROR REQUEST\r\n";
+		send(socket, k.c_str(), k.size(), 0);
+	}
 }
 
 void clientConnect(int client) {
@@ -125,5 +168,6 @@ int sever() {
 }
 
 int main() {
-	refeshData();
+	char a[] = "GET /sjc\nusername: trannhattruong\r\n";
+	GET(1, a);
 }
