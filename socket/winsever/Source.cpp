@@ -192,9 +192,6 @@ std::wstring TakeKey(HINTERNET connectSV) {
 			b += wchar_t(a[i]);
 		}
 	}
-	std::wofstream fo("Key_api");
-	fo << b;
-	fo.close();
 	return b;
 }
 
