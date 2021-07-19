@@ -4,58 +4,23 @@
 #include<WS2tcpip.h>
 #include<thread>
 #include<sstream>
-#include<string>
+#include<winhttp.h>
+#include<fstream>
+#include<windows.data.json.h>
+#include<sql.h>
 #define PORT "2000"
 
 #pragma comment (lib, "Ws2_32.lib")
+#pragma comment(lib, "winhttp.lib")
+ 
+std::wstring API_KEY = L"";
 
-void refeshData() {
-	WORD version = MAKEWORD(2, 2);
-	WSADATA wsa;
-	int temp = WSAStartup(version, &wsa);
-	addrinfo hints;
-	addrinfo* result = nullptr;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-	int ck = getaddrinfo("206.189.157.201", "80", &hints, &result);
-	std::cout << ck;
-
-	int connectSock;
-
-	for (addrinfo* ptr = result; ptr != nullptr; ptr = ptr->ai_next) {
-		connectSock = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-		if (connectSock == INVALID_SOCKET) {
-			std::cout << "Socket fail: " << WSAGetLastError();
-			WSACleanup();
-			return;
-		}
-
-		ck = connect(connectSock, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (ck == SOCKET_ERROR) {
-			closesocket(connectSock);
-			connectSock = INVALID_SOCKET;
-			continue;
-		}
-		break;
-	}
-	freeaddrinfo(result);
-
-	if (connectSock == INVALID_SOCKET) {
-		std::cout << "Unable to connect to sever\n";
-		WSACleanup();
-		return;
-	}
-	char a[1024];
-	std::string k = "GET /api/v2/gold/doji HTTP/1.2";
-	memset(a, 0, 1024);
-	send(connectSock, k.c_str(), k.length(), 0);
-	std::cout << "\nSent\n";
-	recv(connectSock, a, 1024, 0);
-	std::cout << '\n' << a;
-
-}
+struct User
+{
+	int socket;
+	std::string username;
+	User* next;
+};
 
 void GET(int socket,char*_str) {
 	std::stringstream sstr(_str);
@@ -77,12 +42,33 @@ void GET(int socket,char*_str) {
 }
 
 void LOGIN(int socket, char* _str) {
-
+	std::stringstream sstr(_str);
+	std::string username, password, response;
+	std::string str(_str);
+	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
+	sstr >> username;
+	sstr.seekg(str.find(":", str.find("password")) + 1, sstr.beg);
+	sstr >> username;
 }
 void LOGOUT(int socket, char* _str) {
+	std::stringstream sstr(_str);
+	std::string username, response;
+	std::string str(_str);
+	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
+	sstr >> username;
 
 }
 void REG(int socket, char* _str) {
+	std::stringstream sstr(_str);
+	std::string username, password, response;
+	std::string str(_str);
+	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
+	sstr >> username;
+	sstr.seekg(str.find(":", str.find("password")) + 1, sstr.beg);
+	sstr >> username;
+}
+
+void CHECK() {
 
 }
 
@@ -162,12 +148,118 @@ int sever() {
 		client = accept(listenSock, nullptr, nullptr);
 	} while (client != INVALID_SOCKET);
 
-
 	WSACleanup();
 	return 0;
 }
 
+std::wstring TakeKey(HINTERNET connectSV) {
+	std::string a = "";
+	std::wstring mess = L"/api/request_api_key?scope=gold";
+	HINTERNET request = WinHttpOpenRequest(connectSV, L"GET", mess.c_str(), NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+	bool iresults = WinHttpSendRequest(request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+	bool results = WinHttpReceiveResponse(request, NULL);
+	DWORD dwSize = 0, dwDownloaded = 0;
+	char* pszOutBuffer;
+	if (results)
+	{
+		do
+		{
+			dwSize = 0;
+			if (!WinHttpQueryDataAvailable(request, &dwSize))
+				std::cout << "Error " << GetLastError() << " query data\n";
+			pszOutBuffer = new char[dwSize + 1];
+			if (!pszOutBuffer)
+			{
+				printf("Out of memory\n");
+				dwSize = 0;
+			}
+			else
+			{
+				ZeroMemory(pszOutBuffer, dwSize + 1);
+				if (!WinHttpReadData(request, (LPVOID)pszOutBuffer, dwSize, &dwDownloaded))
+					std::cout << "Error " << GetLastError() << " WinHttpReadData\n";
+				else
+					a += pszOutBuffer;
+				delete[] pszOutBuffer;
+			}
+
+		} while (dwSize > 0);
+	}
+	if (request) WinHttpCloseHandle(request);
+	std::wstring b = L"";
+	if (a != "") {
+		for (int i = a.find("\":\"") + 3; i < a.size() - 3; i++) {
+			b += wchar_t(a[i]);
+		}
+	}
+	std::wofstream fo("Key_api");
+	fo << b;
+	fo.close();
+	return b;
+}
+
+void RefeshData(HINTERNET connectSV) {
+	std::wstring mess = L"//api/v2/gold/doji?api_key=";
+	mess += API_KEY;
+	HINTERNET hRequest = WinHttpOpenRequest(connectSV, L"GET", mess.c_str(), NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+
+	bool bResults = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+	if (bResults)
+		bResults = WinHttpReceiveResponse(hRequest, NULL);
+	std::string result = "";
+	DWORD dwSize = 0, dwDownloaded = 0;
+	char* pszOutBuffer;
+	if (bResults)
+	{
+		do
+		{
+			dwSize = 0;
+			if (!WinHttpQueryDataAvailable(hRequest, &dwSize))
+				std::cout << "Error " << GetLastError() << " query data\n";
+			pszOutBuffer = new char[dwSize + 1];
+			if (!pszOutBuffer)
+			{
+				printf("Out of memory\n");
+				dwSize = 0;
+			}
+			else
+			{
+				ZeroMemory(pszOutBuffer, dwSize + 1);
+				if (!WinHttpReadData(hRequest, (LPVOID)pszOutBuffer, dwSize, &dwDownloaded))
+					std::cout << "Error " << GetLastError() << " WinHttpReadData\n";
+				else
+					result += pszOutBuffer;
+				delete[] pszOutBuffer;
+			}
+
+		} while (dwSize > 0);
+	}
+
+	if (!bResults)
+		std::cout << "Error " << GetLastError() << " has occurred\n";
+	if (hRequest) WinHttpCloseHandle(hRequest);
+	if (result.find("Auth Error:") != -1) {
+		API_KEY = TakeKey(connectSV);
+		RefeshData(connectSV);
+		return;
+	}
+	std::cout << result;
+}
+
+
 int main() {
-	char a[] = "GET /sjc\nusername: trannhattruong\r\n";
-	GET(1, a);
+	DWORD dwSize = 0;
+	DWORD dwDownloaded = 0;
+	LPSTR pszOutBuffer;
+	BOOL  bResults = FALSE;
+	HINTERNET  hSession = NULL, hConnect = NULL, hRequest = NULL;
+	hSession = WinHttpOpen(L"WinHTTP Example/1.0",WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,WINHTTP_NO_PROXY_NAME,WINHTTP_NO_PROXY_BYPASS, 0);
+	if (hSession)
+		hConnect = WinHttpConnect(hSession, L"vapi.vnappmob.com",INTERNET_DEFAULT_HTTPS_PORT, 0);
+
+	RefeshData(hConnect);
+
+	if (hRequest) WinHttpCloseHandle(hRequest);
+	if (hConnect) WinHttpCloseHandle(hConnect);
+	if (hSession) WinHttpCloseHandle(hSession);
 }
