@@ -55,11 +55,6 @@ int main(int argc, char** argv) {
 		WSACleanup();
 		return 1;
 	}
-
-	std::thread conec(severConnect, connectSock);
-	conec.detach();
-
-	conec.join();
 	return 0;
 }
 

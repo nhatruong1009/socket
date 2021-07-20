@@ -6,8 +6,6 @@
 #include<sstream>
 #include<winhttp.h>
 #include<fstream>
-#include<windows.data.json.h>
-#include<sql.h>
 #define PORT "2000"
 
 #pragma comment (lib, "Ws2_32.lib")
@@ -15,12 +13,48 @@
  
 std::wstring API_KEY = L"";
 
+
 struct User
 {
-	int socket;
 	std::string username;
+	int socket;
+	std::thread process;
+	bool check;
 	User* next;
 };
+
+void clientConnect(User *user) {
+
+}
+
+
+User* activeUser = nullptr;
+bool updateStatus = false;
+void addActiveUser(std::string user, int socket) {
+	activeUser = new User{ user,socket,std::thread(),true,activeUser };
+	activeUser->process = std::thread(clientConnect, activeUser);
+	activeUser->process.detach();
+}
+
+void deAvtiveUser(std::string user) {
+	User* temp = new User;
+	temp->next = activeUser;
+	while (temp->next != nullptr && temp->next->username.compare(user) != 0)
+	{
+		temp = temp->next;
+	}
+	if (temp->next != nullptr) {
+
+		User* k = temp->next;
+		temp->next = temp->next->next;
+		k->process.~thread();
+		delete k;
+	}
+	temp = activeUser;
+	activeUser = temp->next;
+	delete temp;
+	return;
+}
 
 void GET(int socket,char*_str) {
 	std::stringstream sstr(_str);
@@ -48,7 +82,9 @@ void LOGIN(int socket, char* _str) {
 	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
 	sstr >> username;
 	sstr.seekg(str.find(":", str.find("password")) + 1, sstr.beg);
-	sstr >> username;
+	sstr >> password;
+	while (updateStatus);
+
 }
 void LOGOUT(int socket, char* _str) {
 	std::stringstream sstr(_str);
@@ -56,6 +92,7 @@ void LOGOUT(int socket, char* _str) {
 	std::string str(_str);
 	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
 	sstr >> username;
+	while (updateStatus);
 
 }
 void REG(int socket, char* _str) {
@@ -68,25 +105,47 @@ void REG(int socket, char* _str) {
 	sstr >> username;
 }
 
-void CHECK() {
+void CHECK(int socket) {
+	User* temp = activeUser;
+	while (temp != nullptr && temp->socket != socket)
+		temp = temp->next;
+	if (!temp)
+		temp->check = true;
+}
 
+void CleanClientList() {
+	while (true)
+	{
+		Sleep(2000);
+		updateStatus = true;
+		User* temp = new User;
+		temp->next = activeUser;
+		activeUser = temp;
+		while (temp->next != nullptr) {
+			if (temp->next->check == false) {
+				User* k = temp->next;
+				temp->next = k->next;
+				k->process.~thread();
+				delete k;
+			}
+		}
+		temp = activeUser;
+		activeUser = temp->next;
+		delete temp;
+		updateStatus = false;
+	}
 }
 
 void control(int socket, char* _str) {
 	if (strncmp(_str, "GET", 3) == 0) { GET(socket, _str); }
-	if (strncmp(_str, "IN", 3) == 0) { LOGIN(socket, _str); }
+	if (strncmp(_str, "IN", 2) == 0) { LOGIN(socket, _str); }
 	if (strncmp(_str, "OUT", 3) == 0) { LOGOUT(socket, _str); }
 	if (strncmp(_str, "REG", 3) == 0) { REG(socket, _str); }
+	if (strncmp(_str, "CHECK", 5) == 0) { CHECK(socket); }
 	else {
 		std::string k = "ERROR REQUEST\r\n";
 		send(socket, k.c_str(), k.size(), 0);
 	}
-}
-
-void clientConnect(int client) {
-
-
-	closesocket(client);
 }
 
 int sever() {
@@ -143,8 +202,7 @@ int sever() {
 		return 1;
 	}
 	do {
-		std::thread conec(clientConnect, client);
-		conec.detach();
+	
 		client = accept(listenSock, nullptr, nullptr);
 	} while (client != INVALID_SOCKET);
 
