@@ -75,49 +75,35 @@ void serverConnect(SOCKET& Socket, char* argv)
 	//closesocket(Socket);	// 10038
 }
 
-void Get(SOCKET Socket, char* user)
+void Get(SOCKET Socket, std::string user)
 {
 
 }
 
-void Login(SOCKET Socket)
+void Login(SOCKET Socket, std::string& user)
 {
-	std::string temp1, temp2;
+	std::string temp1, temp2, line;
 	std::cout << "Username: ";
 	std::cin >> temp1;
 	std::cout << "Password: ";
 	std::cin >> temp2;
-	int n1 = temp1.size() + 1, n2 = temp2.size() + 1;
-	char* user = new char[n1];
-	char* pass = new char[n2];
-	strcpy_s(user, n1, temp1.c_str());
-	strcpy_s(pass, n2, temp2.c_str());
-	std::cout << user << "\n" << pass <<"\n";
-	char KEY[2];
-	int result;
-	result = send(Socket, "IN", 3, 0);
-	send(Socket, user, n1, 0);
-	send(Socket, user, n2, 0);
-	result = recv(Socket, KEY, 2, 0);
-	if (result >= 0 && KEY == "1")
-		std::cout << "Login successfully\n";
-	else std::cout << "Login failed\n";
-
+	line = "IN /username: " + temp1 + "password: " + temp2;
+	std::cout << line << "\n";
+	user = temp1;
+	int result = send(Socket, line.c_str(), line.size() + 1, 0);
 }
 
-void Logout(SOCKET Socket, char* user)
+void Logout(SOCKET Socket, std::string user)
 {
-	int result = send(Socket, user, strlen(user), 0);
-	do
-	{
-		result = send(Socket, "OUT", 4, 0);
-	} while (result < 0);
-	std::cout << "Logout successfully\n";
+	std::string line = "OUT /username: " + user;
+	int result = send(Socket, line.c_str(), line.size() + 1, 0);
+	if (result >= 0)
+		std::cout << "Logout successfully\n";
 }
 
 void Register(SOCKET Socket)
 {
-	std::string temp1, temp2, temp3;
+	std::string temp1, temp2, temp3, line;
 	do
 	{
 		std::cout << "Username: ";
@@ -132,25 +118,9 @@ void Register(SOCKET Socket)
 			std::cout << "Confirm password does not match your password\n";
 		}
 	} while (temp2 != temp3);
-	int n1 = temp1.size() + 1, n2 = temp2.size() + 1;
-	char* user = new char[n1];
-	char* pass = new char[n2];
-	strcpy_s(user, n1, temp1.c_str());
-	strcpy_s(pass, n2, temp2.c_str());
-	std::cout << user << "\n" << pass << "\n";
-	char KEY[2];
-	int result;
-	result = send(Socket, "REG", 4, 0);
-	if (result < 0)
-	{
-		std :: cout << "send failed with error:" << WSAGetLastError() << std::endl;
-	}
-	send(Socket, user, n1, 0);
-	send(Socket, user, n2, 0);
-	result = recv(Socket, KEY, 2, 0);
-	if (result >= 0 && KEY == "1")
-		std::cout << "Register successfully\n";
-	else std::cout << "Register failed\n";
+	line = "REG /username: " + temp1 + "password: " + temp2;
+	std::cout << line << "\n";
+	int result = send(Socket, line.c_str(), line.size() + 1, 0);
 }
 
 int main(int argc, char** argv) 
@@ -163,8 +133,10 @@ int main(int argc, char** argv)
 	SOCKET Socket = 1;
 	//-------------------------
 	/*getStarted(Socket, argv[1]);*/
+	std::string user;
 	serverConnect(Socket, argv[1]);
 	Register(Socket);
+	std::cout << user;
 	WSACleanup();
 	closesocket(Socket);
 	return 0;
