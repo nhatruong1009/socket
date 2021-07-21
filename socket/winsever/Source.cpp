@@ -6,10 +6,12 @@
 #include<sstream>
 #include<winhttp.h>
 #include<fstream>
+#include<sql.h>
+#include<windows.data.json.h>
 #define PORT "2000"
 
 #pragma comment (lib, "Ws2_32.lib")
-#pragma comment(lib, "winhttp.lib")
+#pragma comment	(lib, "winhttp.lib")
  
 std::wstring API_KEY = L"";
 
@@ -24,7 +26,9 @@ struct User
 };
 
 void clientConnect(User *user) {
-
+	std::string mess = "ACCEPTED\r\n";
+	std::cout << user->username << " logined\n";
+	send(user->socket, mess.c_str(), mess.size(), 0);
 }
 
 
@@ -48,6 +52,7 @@ void deAvtiveUser(std::string user) {
 		User* k = temp->next;
 		temp->next = temp->next->next;
 		k->process.~thread();
+		send(k->socket, "LOGOUT\r\n", 6, 0);
 		delete k;
 	}
 	temp = activeUser;
@@ -56,7 +61,7 @@ void deAvtiveUser(std::string user) {
 	return;
 }
 
-void GET(int socket,char*_str) {
+void GET(User& user,char*_str) {
 	std::stringstream sstr(_str);
 	std::string gold, username,date, response;
 	std::string str(_str);
@@ -72,12 +77,12 @@ void GET(int socket,char*_str) {
 	//check command
 	//give result
 
-	send(socket, response.c_str(), response.size(), 0);
+	send(user.socket, response.c_str(), response.size(), 0);
 }
 
 void LOGIN(int socket, char* _str) {
 	std::stringstream sstr(_str);
-	std::string username, password, response;
+	std::string username, password;
 	std::string str(_str);
 	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
 	sstr >> username;
@@ -85,16 +90,23 @@ void LOGIN(int socket, char* _str) {
 	sstr >> password;
 	while (updateStatus);
 
-}
-void LOGOUT(int socket, char* _str) {
-	std::stringstream sstr(_str);
-	std::string username, response;
-	std::string str(_str);
-	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
-	sstr >> username;
-	while (updateStatus);
 
+
+	if (true) {
+		addActiveUser(username, socket);
+	}
+	else {
+		send(socket, "DENIED\r\n", 6, 0);
+		std::cout << "denied access from " << socket << '\n';
+	}
 }
+
+void LOGOUT(User &user) {
+	deAvtiveUser(user.username);
+	closesocket(user.socket);
+}
+
+
 void REG(int socket, char* _str) {
 	std::stringstream sstr(_str);
 	std::string username, password, response;
@@ -136,14 +148,23 @@ void CleanClientList() {
 	}
 }
 
-void control(int socket, char* _str) {
-	if (strncmp(_str, "GET", 3) == 0) { GET(socket, _str); }
+void LoginAccount(int socket) {
+	
+	char a[1000];
+	std::string str;
+	int check = 0;
+	do {
+		check = recv(socket, a, 1000, 0);
+		str += a;
+	} while (check > 0);
+	char* _str = new char[str.size() + 1];
+	memset(_str, 0, str.size() + 1);
+	str.copy(_str, str.size(), 0);
 	if (strncmp(_str, "IN", 2) == 0) { LOGIN(socket, _str); }
-	if (strncmp(_str, "OUT", 3) == 0) { LOGOUT(socket, _str); }
 	if (strncmp(_str, "REG", 3) == 0) { REG(socket, _str); }
-	if (strncmp(_str, "CHECK", 5) == 0) { CHECK(socket); }
 	else {
 		std::string k = "ERROR REQUEST\r\n";
+		std::cout << "ERROR REQUEST from: " << socket;
 		send(socket, k.c_str(), k.size(), 0);
 	}
 }
@@ -202,7 +223,7 @@ int sever() {
 		return 1;
 	}
 	do {
-	
+		LoginAccount(client);
 		client = accept(listenSock, nullptr, nullptr);
 	} while (client != INVALID_SOCKET);
 
@@ -265,7 +286,7 @@ void RefeshData(HINTERNET connectSV) {
 	DWORD dwSize = 0, dwDownloaded = 0;
 	char* pszOutBuffer;
 	if (bResults)
-	{
+	{	
 		do
 		{
 			dwSize = 0;
@@ -289,7 +310,6 @@ void RefeshData(HINTERNET connectSV) {
 
 		} while (dwSize > 0);
 	}
-
 	if (!bResults)
 		std::cout << "Error " << GetLastError() << " has occurred\n";
 	if (hRequest) WinHttpCloseHandle(hRequest);
