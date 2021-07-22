@@ -3,10 +3,11 @@
 #include<cstring>
 #include<WS2tcpip.h>
 #include<thread>
+#include<ctime>
 #define PORT "2000"
 
 #pragma comment (lib, "Ws2_32.lib")
-
+void Get(SOCKET Socket, std::string user, std::string gold);
 void serverConnect(SOCKET& Socket, char* argv)
 {
 	int result;
@@ -75,9 +76,38 @@ void serverConnect(SOCKET& Socket, char* argv)
 	//closesocket(Socket);	// 10038
 }
 
-void Get(SOCKET Socket, std::string user)
+void Choose(SOCKET Socket, std::string user)
 {
+	std::cout << "Input date: ";
+	// Input date
+	std::cout << "\nChoose company: \n 1. SJC\n 2. DOJI\n 3. PNJ\n";
+	int n;
+	std::cin >> n;
+	if (n == 1)
+	{
+		Get(Socket, user, "SJC");
+	}
+	else if (n == 2)
+	{
+		Get(Socket, user, "DOJI");
+	}
+	else if (n == 3)
+	{
+		Get(Socket, user, "PNJ");
+	}
+	else
+		return;
+}
 
+void Get(SOCKET Socket, std::string user, std::string gold)
+{
+	time_t temp = time(0);
+	tm date;
+	localtime_s(&date, &temp);
+	std::string line = "GET /" + gold + " username: " + user + " day: " + std::to_string(date.tm_mday) + "/" + std::to_string(date.tm_mon + 1) + "/" + std::to_string(date.tm_year + 1900);
+	// GET /sjc username: 123 day: 22/7/2021
+	std::cout << line;
+	int result = send(Socket, line.c_str(), line.size() + 1, 0);
 }
 
 void Login(SOCKET Socket, std::string& user)
@@ -87,7 +117,7 @@ void Login(SOCKET Socket, std::string& user)
 	std::cin >> temp1;
 	std::cout << "Password: ";
 	std::cin >> temp2;
-	line = "IN /username: " + temp1 + "password: " + temp2;
+	line = "IN /username: " + temp1 + " password: " + temp2;
 	std::cout << line << "\n";
 	user = temp1;
 	int result = send(Socket, line.c_str(), line.size() + 1, 0);
@@ -96,6 +126,7 @@ void Login(SOCKET Socket, std::string& user)
 void Logout(SOCKET Socket, std::string user)
 {
 	std::string line = "OUT /username: " + user;
+	std::cout << line << "\n";
 	int result = send(Socket, line.c_str(), line.size() + 1, 0);
 	if (result >= 0)
 		std::cout << "Logout successfully\n";
@@ -132,11 +163,9 @@ int main(int argc, char** argv)
 	//}
 	SOCKET Socket = 1;
 	//-------------------------
-	/*getStarted(Socket, argv[1]);*/
-	std::string user;
+	std::string user = "samuel";
 	serverConnect(Socket, argv[1]);
-	Register(Socket);
-	std::cout << user;
+	Choose(Socket, user);
 	WSACleanup();
 	closesocket(Socket);
 	return 0;
