@@ -6,8 +6,7 @@
 #include<sstream>
 #include<winhttp.h>
 #include<fstream>
-#include<sql.h>
-#include<windows.data.json.h>
+
 #define PORT "2000"
 
 #pragma comment (lib, "Ws2_32.lib")
@@ -337,4 +336,8 @@ int main() {
 	if (hRequest) WinHttpCloseHandle(hRequest);
 	if (hConnect) WinHttpCloseHandle(hConnect);
 	if (hSession) WinHttpCloseHandle(hSession);
+}
+
+void JsonFile() {
+	
 }

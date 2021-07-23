@@ -141,5 +141,3 @@ int main(int argc, char** argv)
 	closesocket(Socket);
 	return 0;
 }
-
-
