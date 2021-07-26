@@ -4,6 +4,12 @@
 #include<WS2tcpip.h>
 #include<thread>
 #include<ctime>
+#include<iomanip>
+
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+using namespace rapidjson;
 #define PORT "2000"
 
 #pragma comment (lib, "Ws2_32.lib")
@@ -106,7 +112,7 @@ void Get(SOCKET Socket, std::string user, std::string gold)
 	localtime_s(&date, &temp);
 	std::string line = "GET /" + gold + " username: " + user + " day: " + std::to_string(date.tm_mday) + "/" + std::to_string(date.tm_mon + 1) + "/" + std::to_string(date.tm_year + 1900);
 	// GET /sjc username: 123 day: 22/7/2021
-	std::cout << line;
+	std::cout << line << std::endl;
 	int result = send(Socket, line.c_str(), line.size() + 1, 0);
 }
 
@@ -161,12 +167,43 @@ int main(int argc, char** argv)
 	//	std::cout << "Missing server ip\n";
 	//	return 1;
 	//}
-	SOCKET Socket = 1;
-	//-------------------------
-	std::string user = "samuel";
-	serverConnect(Socket, argv[1]);
-	Choose(Socket, user);
-	WSACleanup();
-	closesocket(Socket);
+	//SOCKET Socket = 1;
+	////-------------------------
+	//std::string user = "samuel";
+	//serverConnect(Socket, argv[1]);
+	//Choose(Socket, user);
+	//WSACleanup();
+	//closesocket(Socket);
+
+	// 1. Parse a JSON string into DOM.
+	const char* json = "{\"result\": [{\"12:30\": [{\"buy_ct\": 56800000.0,\"buy_dn\" : 56800000.0,\"buy_hcm\" : 56800000.0,\"buy_hn\" : 1000.0,\"sell_dn\" : 57550000.0,\"sell_hcm\" : 57550000.0,	\"sell_hn\" : 57550000.0}],\"13:00\": [{\"buy_ct\": 56800000.0,\"buy_dn\" : 56800000.0,\"buy_hcm\" : 56800000.0,\"buy_hn\" : 2000.0,\"sell_dn\" : 57550000.0,\"sell_hcm\" : 57550000.0,\"sell_hn\" : 57550000.0}]}]}";
+	Document d;
+	d.Parse(json);
+
+	// 2. Modify it by DOM.
+	Value& time = d["result"][0];
+	for (Value::ConstMemberIterator i = time.MemberBegin(); i != time.MemberEnd(); i++)
+	{
+		Value& price = d["result"][0][i->name.GetString()][0];
+		std::cout << i->name.GetString() << ": \n";
+		for (Value::ConstMemberIterator j = price.MemberBegin(); j != price.MemberEnd(); j++)
+		{
+			std::cout << j->name.GetString() << ": ";
+			std::cout << std::setprecision(1) << std::fixed << j->value.GetDouble() << std::endl;
+		}
+		std::cout << std::endl;
+	}
+		
+	
+
+	// 3. Stringify the DOM
+	StringBuffer buffer;
+	Writer<StringBuffer> writer(buffer);
+	d.Accept(writer);
+
+	// Output {"project":"rapidjson","stars":11}
+	//std::cout << buffer.GetString() << std::endl;
+	/*std::cout << d["stars"].GetInt();*/
+	//SizeType a = d.Size();
 	return 0;
 }
