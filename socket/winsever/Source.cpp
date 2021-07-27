@@ -14,161 +14,50 @@
  
 std::wstring API_KEY = L"";
 
-
 struct User
 {
-	std::string username;
-	int socket;
-	std::thread process;
-	bool check;
-	User* next;
+	std::string username="";
+	int socket;;
+	bool check = true;
+	std::string Respone="";
+	char* lastRes = nullptr;
+	User() {}	
+	User(int socket) {
+		this->socket = socket;
+	}
+	User(int socket, std::string username) {
+		this->socket = socket;
+		this->username = username;
+	}
+	void SendData( char* str ) {
+		send(this->socket, str, strlen(str), 0);
+	}
+
+	std::string revicedata() {
+		int recive = 0;
+		char a[1024];
+		std::string buff = "";
+		do {
+			memset(a, 0, 1024);
+			recive = recv(this->socket, a, 1024, 0);
+			buff += a;
+		} while (recive > 0);
+		return buff;
+	}
+	void CheckLive() {
+		this->check = false;
+		char a[] = { "CHECK" };
+		send(this->socket, a, strlen(a), 0);
+	}
+	void ResponeCheck() {
+		this->check = true;
+	}
 };
 
-void clientConnect(User *user) {
-	std::string mess = "ACCEPTED\r\n";
-	std::cout << user->username << " logined\n";
-	send(user->socket, mess.c_str(), mess.size(), 0);
-}
-
-
-User* activeUser = nullptr;
-bool updateStatus = false;
-void addActiveUser(std::string user, int socket) {
-	activeUser = new User{ user,socket,std::thread(),true,activeUser };
-	activeUser->process = std::thread(clientConnect, activeUser);
-	activeUser->process.detach();
-}
-
-void deAvtiveUser(std::string user) {
-	User* temp = new User;
-	temp->next = activeUser;
-	while (temp->next != nullptr && temp->next->username.compare(user) != 0)
-	{
-		temp = temp->next;
-	}
-	if (temp->next != nullptr) {
-
-		User* k = temp->next;
-		temp->next = temp->next->next;
-		k->process.~thread();
-		send(k->socket, "LOGOUT\r\n", 6, 0);
-		delete k;
-	}
-	temp = activeUser;
-	activeUser = temp->next;
-	delete temp;
-	return;
-}
-
-void GET(User& user,char*_str) {
-	std::stringstream sstr(_str);
-	std::string gold, username,date, response;
-	std::string str(_str);
-	sstr.seekg(str.find("/",str.find("GET")) + 1, sstr.beg);
-	sstr >> gold;
-	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
-	sstr >> username;
-	sstr.seekg(str.find(":", str.find("day")) + 1, sstr.beg);
-	sstr >> date;
-	std::cout << gold << " " << username << " " << date;
-
-	//check avtive accout
-	//check command
-	//give result
-
-	send(user.socket, response.c_str(), response.size(), 0);
-}
-
-void LOGIN(int socket, char* _str) {
-	std::stringstream sstr(_str);
-	std::string username, password;
-	std::string str(_str);
-	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
-	sstr >> username;
-	sstr.seekg(str.find(":", str.find("password")) + 1, sstr.beg);
-	sstr >> password;
-	while (updateStatus);
-
-
-
-	if (true) {
-		addActiveUser(username, socket);
-	}
-	else {
-		send(socket, "DENIED\r\n", 6, 0);
-		std::cout << "denied access from " << socket << '\n';
-	}
-}
-
-void LOGOUT(User &user) {
-	deAvtiveUser(user.username);
-	closesocket(user.socket);
-}
-
-
-void REG(int socket, char* _str) {
-	std::stringstream sstr(_str);
-	std::string username, password, response;
-	std::string str(_str);
-	sstr.seekg(str.find(":", str.find("username")) + 1, sstr.beg);
-	sstr >> username;
-	sstr.seekg(str.find(":", str.find("password")) + 1, sstr.beg);
-	sstr >> username;
-}
-
-void CHECK(int socket) {
-	User* temp = activeUser;
-	while (temp != nullptr && temp->socket != socket)
-		temp = temp->next;
-	if (!temp)
-		temp->check = true;
-}
-
-void CleanClientList() {
-	while (true)
-	{
-		Sleep(2000);
-		updateStatus = true;
-		User* temp = new User;
-		temp->next = activeUser;
-		activeUser = temp;
-		while (temp->next != nullptr) {
-			if (temp->next->check == false) {
-				User* k = temp->next;
-				temp->next = k->next;
-				k->process.~thread();
-				delete k;
-			}
-		}
-		temp = activeUser;
-		activeUser = temp->next;
-		delete temp;
-		updateStatus = false;
-	}
-}
-
-void LoginAccount(int socket) {
-	
-	char a[1000];
-	std::string str;
-	int check = 0;
-	do {
-		check = recv(socket, a, 1000, 0);
-		str += a;
-	} while (check > 0);
-	char* _str = new char[str.size() + 1];
-	memset(_str, 0, str.size() + 1);
-	str.copy(_str, str.size(), 0);
-	if (strncmp(_str, "IN", 2) == 0) { LOGIN(socket, _str); }
-	if (strncmp(_str, "REG", 3) == 0) { REG(socket, _str); }
-	else {
-		std::string k = "ERROR REQUEST\r\n";
-		std::cout << "ERROR REQUEST from: " << socket;
-		send(socket, k.c_str(), k.size(), 0);
-	}
-}
-
 int sever() {
+
+	User* a = new User();
+	a->~User();
 	WSADATA wsa;
 	addrinfo* result = nullptr;
 	addrinfo hints;
@@ -222,7 +111,7 @@ int sever() {
 		return 1;
 	}
 	do {
-		LoginAccount(client);
+		//LoginAccount(client);
 		client = accept(listenSock, nullptr, nullptr);
 	} while (client != INVALID_SOCKET);
 
@@ -306,7 +195,6 @@ void RefeshData(HINTERNET connectSV) {
 					result += pszOutBuffer;
 				delete[] pszOutBuffer;
 			}
-
 		} while (dwSize > 0);
 	}
 	if (!bResults)
@@ -320,8 +208,10 @@ void RefeshData(HINTERNET connectSV) {
 	std::cout << result;
 }
 
-
 int main() {
+	std::string a = "123";
+	std::cout << a.length() << '\n';
+	system("PAUSE");
 	DWORD dwSize = 0;
 	DWORD dwDownloaded = 0;
 	LPSTR pszOutBuffer;
