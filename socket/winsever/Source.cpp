@@ -7,6 +7,8 @@
 #include<winhttp.h>
 #include<fstream>
 #include<ctime>
+#include<queue>
+#include<mutex>
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
@@ -19,15 +21,163 @@
 #pragma comment	(lib, "winhttp.lib")
  
 std::wstring API_KEY = L"";
-
+std::mutex mtx;
 using namespace rapidjson;
+static bool outUser(int socket);
 
-struct User
+std::string extraData="";
+
+int AccountREGLOG(std::string user,std::string password,bool reg=false) {
+	mtx.lock();
+	int result = 0;
+	std::fstream ac("account.txt", std::ios_base::in);
+	if (!ac) { std::fstream fo("account.txt", std::ios_base::out); fo.close(); ac.open("account.txt", std::ios_base::in); }
+	std::string tk="", mk;
+	while (!ac.eof() && tk!=user)
+	{
+		ac >> tk;
+		ac >> mk;
+	}
+	ac.close();
+	if (tk == user && mk == password) {
+		result = 1;
+	}
+	else if (tk == user && mk != password) {
+		result = 0;
+	}
+	if (tk != user) {
+		if (reg) {
+			ac.open("account.txt", std::ios_base::app);
+			ac << user << " " << password << '\n';
+		}
+		result = -1;
+	}
+	mtx.unlock();
+	return result;
+}
+
+bool LOG(const char* resquest) {
+	std::stringstream loc(resquest);
+	std::string username, password;
+	std::getline(loc, username, ':');
+	std::getline(loc, username, '/');
+	std::getline(loc, password, ':');
+	std::getline(loc, password, '/');
+	if (AccountREGLOG(username, password) == 1)
+		return true;
+	return false;
+}
+
+bool REG(const char* resquest) {
+	std::stringstream loc(resquest);
+	std::string username, password;
+	std::getline(loc, username, ':');
+	std::getline(loc, username, '/');
+	std::getline(loc, password, ':');
+	std::getline(loc, password, '/');
+	
+	if (AccountREGLOG(username, password,true) == -1) {
+		return true;
+	}
+	return false;
+}
+
+std::string GetdataNow(std::string gold) {
+	mtx.lock();
+	time_t timenow = time(0);
+	tm now;
+	localtime_s(&now, &timenow);
+	std::string today = std::to_string(now.tm_mday);
+	std::string filename = std::to_string(now.tm_mon + 1) + "-" + std::to_string(now.tm_year + 1900) + ".json";
+	std::fstream fi(filename, std::ios_base::in);
+	IStreamWrapper isw(fi);
+	rapidjson::Document dat;
+	std::string result;
+	dat.ParseStream(isw);
+	if (dat.HasParseError()) result = "Fail";
+	else if (dat.HasMember(std::to_string(now.tm_mday).c_str()) && dat[std::to_string(now.tm_mday).c_str()].HasMember(gold.c_str())) {
+		StringBuffer sb;
+		Writer<StringBuffer> writer(sb);
+		Value::ConstMemberIterator data = dat[std::to_string(now.tm_mday).c_str()][gold.c_str()].MemberEnd();
+		data--;
+		data->value.Accept(writer);
+		result = _strdup(sb.GetString());
+		//dat.Clear();
+	}
+	else result = "Fail";
+	mtx.unlock();
+	return result;
+}
+
+void ExtraData() {
+	time_t timenow = time(0);
+	tm now;
+	localtime_s(&now, &timenow);
+	std::string today = std::to_string(now.tm_mday);
+	std::string filename = "Gold_" + std::to_string(now.tm_mon + 1) + "_" + std::to_string(now.tm_year + 1900) + ".json";
+	std::fstream fi(filename, std::ios_base::in);
+	IStreamWrapper isw(fi);
+	rapidjson::Document dat;
+	dat.ParseStream(isw);
+	if (dat.HasParseError()) extraData = "Fail";
+	else {
+		Value::ConstMemberIterator i = dat.MemberEnd();
+		i--;
+		StringBuffer sb;
+		Writer<StringBuffer> writer(sb);
+		i->value.Accept(writer);
+		extraData = _strdup(sb.GetString());
+
+	}
+	dat.GetAllocator().~MemoryPoolAllocator();
+}
+
+std::string OrginData() {
+	return "{\"sjc\":" + GetdataNow("sjc") + ",\"pnj\":" + GetdataNow("pnj") + ",\"doji\":" + GetdataNow("doji") + "}";
+}
+
+std::string GetData(const char* data) { //sjc , pnj & doji only
+	mtx.lock();
+	std::string result;
+	std::stringstream sstr(data);
+	std::string gold, day, month, year;
+	std::getline(sstr, gold, '/');
+	std::getline(sstr, day, ':');
+	std::getline(sstr, day, '/');
+	if (day == "now") { mtx.unlock(); return GetdataNow(gold); }
+	std::getline(sstr, month, '/');
+	std::getline(sstr, year);
+	int d = std::stoi(day);
+	int m = std::stoi(month);
+	day = std::to_string(d);
+	month = std::to_string(m);
+	std::fstream fi(month + "-" + year + ".json", std::ios_base::in);
+	IStreamWrapper isw(fi);
+
+	rapidjson::Document dat;
+	dat.ParseStream(isw);
+	if (dat.HasParseError()) return "Fail";
+	if (dat.HasMember(day.c_str()) && dat[day.c_str()].HasMember(gold.c_str())) {
+		StringBuffer sb;
+		Writer<StringBuffer> writer(sb);
+		dat[day.c_str()][gold.c_str()].Accept(writer);
+		result = _strdup(sb.GetString());
+	}
+	else {
+		result = "Fail";
+	}
+	mtx.unlock();
+	fi.close();
+	return result;
+}
+
+class User
 {
+private:
+	std::string revbuff = "";
+public:
 	std::string username="";
-	int socket;;
-	bool check = true;
-	std::string Respone="";
+	int socket;
 	char* lastRes = nullptr;
 	User() {}	
 	User(int socket) {
@@ -37,34 +187,82 @@ struct User
 		this->socket = socket;
 		this->username = username;
 	}
-	void SendData( char* str ) {
-		send(this->socket, str, strlen(str), 0);
+	void SendData(const char* str ) {
+		std::string k = str;
+		k += "\r";
+		send(this->socket, k.c_str(), k.size(), 0);
 	}
-	std::string revicedata() {
+	std::string revicedata(bool& check) {
 		int recive = 0;
 		char a[1024];
-		std::string buff = "";
+		std::string buff = revbuff;
 		do {
 			memset(a, 0, 1024);
 			recive = recv(this->socket, a, 1024, 0);
+			if (recive == -1) { check = false; break; }
+			if (strstr(a, "\r") != nullptr) {
+				char* b = strstr(a, "\r");
+				char temp[1024] = "";
+				int count = b - a;
+				for (int i = 0; i < count; i++) {
+					temp[i] = a[i];
+				}
+				buff += temp;
+				char temp2[1024] = "";
+				for (int i = count + 1; i < recive; i++) {
+					temp2[i - count - 1] = a[i];
+				}
+				revbuff = temp2;
+				break;
+			}
 			buff += a;
 		} while (recive > 0);
 		return buff;
 	}
-	void CheckLive() {
-		this->check = false;
-		char a[] = { "CHECK" };
-		send(this->socket, a, strlen(a), 0);
+
+	void Response(const char* resquest) {
+		std::cout << this->socket << " resquest ";
+		if (strncmp(resquest, "LOG", 3) == 0) {
+			std::cout << "LOG\n";
+			if (LOG(&resquest[4]) == true) {
+				std::stringstream loc(resquest);
+				std::string username_;
+				std::getline(loc, username_, ' ');
+				std::getline(loc, username_, '/');
+				this->SendData("Accept");
+				this->username = username_;
+			}
+			else this->SendData("Deny");
+		}
+		else if (strncmp(resquest, "OUT", 3) == 0) {
+			std::cout << "OUT\n";
+			this->SendData("Accept");
+			outUser(this->socket);
+		}
+		else if (strncmp(resquest, "REG", 3) == 0) {
+			std::cout << "REG\n";
+			if (REG(&resquest[4])) {
+				this->SendData("Accept");
+			}
+			else this->SendData("Deny");
+		}
+		else if (this->username == "") this->SendData("Deny");
+		else if( strncmp(resquest,"GET",3)==0) {
+			std::cout << "GET\n";
+			this->SendData(GetData(&resquest[4]).c_str());
+			//this->SendData("Accept");
+		}
+		else this->SendData("Deny");
 	}
-	void ResponeCheck() {
-		this->check = true;
-	}
+
 };
 
-struct UserList
+class UserList
 {
+public:
 	User user;
 	UserList* next;
+	std::thread* userthread = nullptr;
 	UserList(int socket,UserList*next=nullptr) {
 		this->user.socket = socket;
 		this->next = next;
@@ -73,38 +271,39 @@ struct UserList
 
 static UserList* user = nullptr;
 
-static UserList* inUser(int socket) {		
+static UserList* inUser(int socket) {
+	mtx.lock();
 	user = new UserList(socket, user);
+	mtx.unlock();
 	return user;
 }
 
 static bool outUser(int socket) {
+	mtx.lock();
 	UserList* temp = user;
 	if (temp->user.socket == socket) {
 		user = user->next;
-		// giao thuc huy ket noi
+		temp->userthread->~thread();
+		delete[] temp->userthread;
 		delete temp;
+		mtx.unlock();
 		return true;
 	}
 
 	while (temp->next != nullptr && temp->next->user.socket != socket)
 		temp = temp->next;
 	if (temp->next == nullptr)
+	{
+		mtx.unlock();
 		return false;
+	}
 	UserList* del = temp->next;
 	temp->next = temp->next->next;
-	//giao thuc huy ket noi
+	del->userthread->~thread();
+	delete[] temp->userthread;
 	delete del;
+	mtx.unlock();
 	return true;
-}
-
-static void checkAlive() {
-	UserList* check = user;
-	while (check)
-	{
-		check->user.CheckLive();
-		check = check->next;
-	}
 }
 
 static void sendToAll(char*str) {
@@ -114,6 +313,14 @@ static void sendToAll(char*str) {
 		check->user.SendData(str);
 		check = check->next;
 	}
+}
+
+void threadStartClient(User client) {
+	bool check = true;
+	do {
+		client.Response(client.revicedata(check).c_str());
+		if (!check) return;
+	} while (1);
 }
 
 int sever() {
@@ -127,7 +334,7 @@ int sever() {
 		std::cout << "WSAtarup failed " << ck;
 		return 1;
 	}
-	memset(&hints, 0, sizeof(hints));
+	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
@@ -154,7 +361,7 @@ int sever() {
 		WSACleanup();
 		return 1;
 	}
-	ck = listen(listenSock, SOMAXCONN);
+	ck = listen(listenSock, 1000);
 	if (ck == SOCKET_ERROR) {
 		std::cout << "listen fail: " << WSAGetLastError();
 		closesocket(listenSock);
@@ -163,8 +370,12 @@ int sever() {
 	}
 	int client;
 	do {
-		std::cout << "waiting";
+		std::cout << "waiting\n";
 		client = accept(listenSock, nullptr, nullptr);
+		
+		inUser(client);
+		user->userthread = new std::thread(threadStartClient, user->user);
+		user->userthread->detach();
 	} while (client != INVALID_SOCKET);
 
 	WSACleanup();
@@ -317,11 +528,11 @@ void RefeshData(HINTERNET hConnect) {
 	Writer<OStreamWrapper> write{ fo };
 	b.Accept(write);
 	fileout.close();
-	a.RemoveAllMembers();
-	b.RemoveAllMembers();
+	b.GetAllocator().~MemoryPoolAllocator();
+	a.GetAllocator().~MemoryPoolAllocator();
 }
 
-void startup() {
+void RefeshData1() {
 	HINTERNET  hSession = NULL, hConnect = NULL;
 	hSession = WinHttpOpen(L"WinHTTP Example/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (hSession)
@@ -330,7 +541,6 @@ void startup() {
 	if (hConnect) WinHttpCloseHandle(hConnect);
 	if (hSession) WinHttpCloseHandle(hSession);
 }
-
 
 void RefeshData2() {
 	HINTERNET  hSession = NULL, hConnect = NULL;
@@ -377,7 +587,6 @@ void RefeshData2() {
 	time_t timenow = time(0);
 	tm now;
 	localtime_s(&now, &timenow);
-	std::string now_ = std::to_string(now.tm_hour) + "h" + std::to_string(now.tm_min);
 	std::string today = std::to_string(now.tm_mday);
 	std::string filename = "Gold_" + std::to_string(now.tm_mon + 1) + "_" + std::to_string(now.tm_year + 1900) + ".json";
 	Document a;
@@ -395,20 +604,20 @@ void RefeshData2() {
 	}
 	Value::Array temp = a["golds"][0]["value"].GetArray();
 	for (int i = 0; i < temp.Capacity(); i++) {
-		std::string k = a["golds"][0]["value"][i]["company"].GetString();
-		if (!strcmp(k.c_str(), "1Coin")) {
+		if (!strcmp(a["golds"][0]["value"][i]["company"].GetString(), "1Coin")) {
 			continue;
 		}
+		std::string k = a["golds"][0]["value"][i]["brand"].GetString();
 		if (!b[today.c_str()].HasMember(k.c_str())) {
 			Value empty;
 			empty.SetObject();
-			b[today.c_str()].AddMember(rapidjson::StringRef(a["golds"][0]["value"][i]["company"].GetString()), empty, b.GetAllocator());
+			b[today.c_str()].AddMember(rapidjson::StringRef(a["golds"][0]["value"][i]["brand"].GetString()), empty, b.GetAllocator());
 		}
-		std::string e = a["golds"][0]["value"][i]["brand"].GetString();
+		std::string e = a["golds"][0]["value"][i]["type"].GetString();
 		if (!b[today.c_str()][k.c_str()].HasMember(e.c_str())) {
 			Value empty;
 			empty.SetObject();
-			b[today.c_str()][k.c_str()].AddMember(rapidjson::StringRef(a["golds"][0]["value"][i]["brand"].GetString()), empty, b.GetAllocator());
+			b[today.c_str()][k.c_str()].AddMember(rapidjson::StringRef(a["golds"][0]["value"][i]["type"].GetString()), empty, b.GetAllocator());
 		}
 		Value empty;
 		empty.SetObject();
@@ -416,9 +625,8 @@ void RefeshData2() {
 		buy.SetString(rapidjson::StringRef(a["golds"][0]["value"][i]["buy"].GetString()));		
 		Value sell;
 		sell.SetString(rapidjson::StringRef(a["golds"][0]["value"][i]["sell"].GetString()));
-		b[today.c_str()][k.c_str()][e.c_str()].AddMember(StringRef(now_.c_str()), empty, b.GetAllocator());
-		b[today.c_str()][k.c_str()][e.c_str()][now_.c_str()].AddMember(rapidjson::StringRef("buy"), buy, b.GetAllocator());
-		b[today.c_str()][k.c_str()][e.c_str()][now_.c_str()].AddMember(rapidjson::StringRef("sell"), sell, b.GetAllocator());
+		b[today.c_str()][k.c_str()][e.c_str()].AddMember(rapidjson::StringRef("buy"), buy, b.GetAllocator());
+		b[today.c_str()][k.c_str()][e.c_str()].AddMember(rapidjson::StringRef("sell"), sell, b.GetAllocator());
 	}
 
 	std::ofstream fileout(filename);
@@ -426,13 +634,17 @@ void RefeshData2() {
 	Writer<OStreamWrapper> write{ fo };
 	b.Accept(write);
 	fileout.close();
-	a.RemoveAllMembers();
-	b.RemoveAllMembers();
-
+	a.GetAllocator().~MemoryPoolAllocator();
+	b.GetAllocator().~MemoryPoolAllocator();
 	if (hConnect) WinHttpCloseHandle(hConnect);
 	if (hSession) WinHttpCloseHandle(hSession);
 	if (hRequest) WinHttpCloseHandle(hRequest);
 }
 
 int main() {
+	sever();
+	//RefeshData2();
+	//ExtraData();
+	//std::cout << extraData;
+	return 0;
 }

@@ -1,6 +1,6 @@
 ﻿#include<WinSock2.h>
 #include<iostream>
-#include<cstring>
+#include<string>
 #include<WS2tcpip.h>
 #include<thread>
 #include<ctime>
@@ -13,12 +13,10 @@ using namespace rapidjson;
 #define PORT "2000"
 
 #pragma comment (lib, "Ws2_32.lib")
-void Get(SOCKET Socket, std::string user, std::string gold);
 void serverConnect(SOCKET& Socket, char* argv)
 {
 	int result;
-	//-------------------------
-	// Khởi tạo WSA (cần thiết để khởi tạo socket)
+
 	WSADATA wsa;
 	if (WSAStartup(MAKEWORD(2, 2), &wsa) < 0)
 	{
@@ -30,14 +28,12 @@ void serverConnect(SOCKET& Socket, char* argv)
 		std::cout << "WSA initialize successfully" << std::endl;
 	}
 
-	//-------------------------
 	addrinfo hints, * addr = nullptr;
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	// Resolve the server address and port
 	result = getaddrinfo(argv, PORT, &hints, &addr);
 	if (result != 0)
 	{
@@ -45,10 +41,6 @@ void serverConnect(SOCKET& Socket, char* argv)
 		WSACleanup();
 		return;
 	}
-
-	//-------------------------
-	// Initialize Socket
-	// Attempt to connect to an address until one succeeds
 	for (addrinfo* ptr = addr; ptr != nullptr; ptr = ptr->ai_next) {
 
 		// Create a SOCKET for connecting to server
@@ -78,8 +70,44 @@ void serverConnect(SOCKET& Socket, char* argv)
 		return;
 	}
 
-	//WSACleanup();	// 10093
-	//closesocket(Socket);	// 10038
+	//some thing here Socket
+}
+
+int senddata(int socket, const char* str) {
+	std::string k = str;
+	k += "\r";
+	return send(socket, k.c_str(), k.size(), 0);
+}
+
+std::string revicedata(int sock) {
+	int recive = 0;
+	char a[1024];
+	std::string buff = "";
+	do {
+		memset(a, 0, 1024);
+		recive = recv(sock, a, 1024, 0);
+		if (strstr(a, "\r") != nullptr) {
+			char* b = strstr(a, "\r");
+			char temp[1024] = "";
+			int count = b - a;
+			for (int i = 0; i < count; i++) {
+				temp[i] = a[i];
+			}
+			buff += temp;
+			break;
+		}
+		buff += a;
+	} while (recive > 0);
+	return buff;
+}
+
+std::string GetNow(std::string gold)
+{
+	return "GET " + gold + +"/day:now";
+}
+
+std::string GetDay(std::string gold, int day, int month, int year) {
+	return "GET " + gold + +"/day:" + std::to_string(day) + "/" + std::to_string(month) + "/" + std::to_string(year);
 }
 
 void Choose(SOCKET Socket, std::string user)
@@ -91,51 +119,36 @@ void Choose(SOCKET Socket, std::string user)
 	std::cin >> n;
 	if (n == 1)
 	{
-		Get(Socket, user, "SJC");
+		senddata(Socket, GetNow("sjc").c_str());
 	}
 	else if (n == 2)
 	{
-		Get(Socket, user, "DOJI");
+		senddata(Socket, GetNow("doji").c_str());
 	}
 	else if (n == 3)
 	{
-		Get(Socket, user, "PNJ");
+		senddata(Socket, GetNow("pnj").c_str());
 	}
 	else
 		return;
 }
 
-void Get(SOCKET Socket, std::string user, std::string gold)
-{
-	time_t temp = time(0);
-	tm date;
-	localtime_s(&date, &temp);
-	std::string line = "GET /" + gold + " username: " + user + " day: " + std::to_string(date.tm_mday) + "/" + std::to_string(date.tm_mon + 1) + "/" + std::to_string(date.tm_year + 1900);
-	// GET /sjc username: 123 day: 22/7/2021
-	std::cout << line << std::endl;
-	int result = send(Socket, line.c_str(), line.size() + 1, 0);
-}
-
-void Login(SOCKET Socket, std::string& user)
+std::string Login(std::string user)
 {
 	std::string temp1, temp2, line;
 	std::cout << "Username: ";
 	std::cin >> temp1;
 	std::cout << "Password: ";
 	std::cin >> temp2;
-	line = "IN /username: " + temp1 + " password: " + temp2;
+	line = "LOG username:" + temp1 + "/password:" + temp2;
 	std::cout << line << "\n";
 	user = temp1;
-	int result = send(Socket, line.c_str(), line.size() + 1, 0);
+	return line;
 }
 
-void Logout(SOCKET Socket, std::string user)
+std::string Logout(std::string user)
 {
-	std::string line = "OUT /username: " + user;
-	std::cout << line << "\n";
-	int result = send(Socket, line.c_str(), line.size() + 1, 0);
-	if (result >= 0)
-		std::cout << "Logout successfully\n";
+	return "OUT username: " + user;	
 }
 
 void Register(SOCKET Socket)
@@ -155,55 +168,14 @@ void Register(SOCKET Socket)
 			std::cout << "Confirm password does not match your password\n";
 		}
 	} while (temp2 != temp3);
-	line = "REG /username: " + temp1 + "password: " + temp2;
+	line = "REG username:" + temp1 + "/password:" + temp2;
 	std::cout << line << "\n";
-	int result = send(Socket, line.c_str(), line.size() + 1, 0);
+	senddata(Socket, line.c_str());
 }
 
 int main(int argc, char** argv) 
 {
-	//if (argc != 2)
-	//{
-	//	std::cout << "Missing server ip\n";
-	//	return 1;
-	//}
-	//SOCKET Socket = 1;
-	////-------------------------
-	//std::string user = "samuel";
-	//serverConnect(Socket, argv[1]);
-	//Choose(Socket, user);
-	//WSACleanup();
-	//closesocket(Socket);
+	if (argc != 2)
 
-	// 1. Parse a JSON string into DOM.
-	const char* json = "{\"result\": [{\"12:30\": [{\"buy_ct\": 56800000.0,\"buy_dn\" : 56800000.0,\"buy_hcm\" : 56800000.0,\"buy_hn\" : 1000.0,\"sell_dn\" : 57550000.0,\"sell_hcm\" : 57550000.0,	\"sell_hn\" : 57550000.0}],\"13:00\": [{\"buy_ct\": 56800000.0,\"buy_dn\" : 56800000.0,\"buy_hcm\" : 56800000.0,\"buy_hn\" : 2000.0,\"sell_dn\" : 57550000.0,\"sell_hcm\" : 57550000.0,\"sell_hn\" : 57550000.0}]}]}";
-	Document d;
-	d.Parse(json);
-
-	// 2. Modify it by DOM.
-	Value& time = d["result"][0];
-	for (Value::ConstMemberIterator i = time.MemberBegin(); i != time.MemberEnd(); i++)
-	{
-		Value& price = d["result"][0][i->name.GetString()][0];
-		std::cout << i->name.GetString() << ": \n";
-		for (Value::ConstMemberIterator j = price.MemberBegin(); j != price.MemberEnd(); j++)
-		{
-			std::cout << j->name.GetString() << ": ";
-			std::cout << std::setprecision(1) << std::fixed << j->value.GetDouble() << std::endl;
-		}
-		std::cout << std::endl;
-	}
-		
-	
-
-	// 3. Stringify the DOM
-	StringBuffer buffer;
-	Writer<StringBuffer> writer(buffer);
-	d.Accept(writer);
-
-	// Output {"project":"rapidjson","stars":11}
-	//std::cout << buffer.GetString() << std::endl;
-	/*std::cout << d["stars"].GetInt();*/
-	//SizeType a = d.Size();
 	return 0;
 }
