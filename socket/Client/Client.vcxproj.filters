@@ -15,13 +15,28 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MyForm.cpp">
+    <ClCompile Include="login.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RegForm.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ip.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MyForm.h">
+    <ClInclude Include="Login.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RegForm.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Ip.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clientSocket.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
