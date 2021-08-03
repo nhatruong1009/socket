@@ -1,7 +1,4 @@
-﻿#ifndef _IPSERVER
-#define _IPSERVER
-
-#include<fstream>
+﻿#include<fstream>
 #include"Login.h"
 #include"clientSocket.h"
 namespace Client {
@@ -76,9 +73,9 @@ namespace Client {
 			this->label1->AutoSize = true;
 			this->label1->Font = (gcnew System::Drawing::Font(L"Microsoft Sans Serif", 20.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->label1->Location = System::Drawing::Point(72, 33);
+			this->label1->Location = System::Drawing::Point(66, 36);
 			this->label1->Name = L"label1";
-			this->label1->Size = System::Drawing::Size(139, 31);
+			this->label1->Size = System::Drawing::Size(159, 31);
 			this->label1->TabIndex = 0;
 			this->label1->Text = L"IP SERVER";
 			// 
@@ -88,14 +85,13 @@ namespace Client {
 				static_cast<System::Byte>(0)));
 			this->textBox1->Location = System::Drawing::Point(24, 96);
 			this->textBox1->Name = L"textBox1";
-			this->textBox1->Text = ip;
 			this->textBox1->Size = System::Drawing::Size(241, 21);
 			this->textBox1->TabIndex = 1;
 			// 
 			// button1
 			// 
 			this->button1->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Bottom));
-			this->button1->Location = System::Drawing::Point(108, 161);
+			this->button1->Location = System::Drawing::Point(102, 155);
 			this->button1->Name = L"button1";
 			this->button1->Size = System::Drawing::Size(75, 23);
 			this->button1->TabIndex = 2;
@@ -117,11 +113,13 @@ namespace Client {
 			this->Text = L"Ip";
 			this->ResumeLayout(false);
 			this->PerformLayout();
+
 		}
 #pragma endregion
 
 	private: System::Void button1_Click(System::Object^ sender, System::EventArgs^ e) {
 		int socket;
+		this->button1->Enabled = false;
 		std::string a;
 		MarshalString(this->textBox1->Text->ToString(), a);
 		if (serverConnect(socket, a)) {
@@ -138,8 +136,7 @@ namespace Client {
 		else {
 			MessageBox::Show("Connect Fail", "Error",MessageBoxButtons::OK ,MessageBoxIcon::Error);
 		}
+		this->button1->Enabled = true;
 		}
 	};
 } 
-
-#endif // !_IPSERVER

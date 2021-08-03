@@ -1,5 +1,5 @@
 #include "Ip.h"
-
+#include "Gold.h"
 #include <Windows.h>
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {

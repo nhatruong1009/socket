@@ -5,6 +5,8 @@
 #include<thread>
 #include<ctime>
 #include<iomanip>
+#include <sstream>
+#include <fstream>
 
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
@@ -171,4 +173,32 @@ void Register(SOCKET Socket)
 	line = "REG username:" + temp1 + "/password:" + temp2;
 	std::cout << line << "\n";
 	senddata(Socket, line.c_str());
+}
+
+int main() {
+	std::wstring ss;
+	ss = L"{ \"buy_nhan_24k\":51100000.0, \"buy_nt_10k\" : 20130000.0, \"buy_nt_14k\" : 28820000.0, \"buy_nt_18k\" : 37300000.0, \"buy_nt_24k\" : 50600000.0, \"sell_nt_24k\" : 51400000.0, \"sell_nhan_24k\" : 51700000.0, \"sell_nt_10k\" : 21530000.0, \"sell_nt_14k\" : 30220000.0, \"sell_nt_18k\" : 38700000.0 }";
+	std::wstringstream str(ss);
+	std::wstring temp;
+	std::wofstream coo("test.txt");
+	int n = 0;
+	n = ss.find(L"buy", n + 3);
+	do
+	{
+		int m = n;
+		str.seekg(n + 4);
+		std::getline(str, temp, L'\"');
+		std::wstring sell = L"sell_" + temp;
+		coo << temp << " ";
+		m = ss.find(L":", m);
+		str.seekg(m + 1);
+		std::getline(str, temp, L'.');
+		coo << temp << " ";
+		m = ss.find(sell);
+		str.seekg(m + sell.length() + 3);
+		std::getline(str, temp, L'.');
+		coo << temp << L'\n';
+		n = ss.find(L"buy", n + 3);
+	} while (n != -1);
+	return 0;
 }

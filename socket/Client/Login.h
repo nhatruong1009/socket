@@ -1,8 +1,5 @@
-﻿#ifndef _LOGIN
-#define _LOGIN
-#include "RegForm.h"
-
-#ifdef _IPSERVER
+﻿#include "RegForm.h"
+#include"Gold.h"
 #include "clientSocket.h"
 namespace Client {
 
@@ -84,10 +81,11 @@ namespace Client {
 			// 
 			this->userbox->Font = (gcnew System::Drawing::Font(L"Microsoft Sans Serif", 9.75F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->userbox->Location = System::Drawing::Point(20, 80);
+			this->userbox->Location = System::Drawing::Point(20, 88);
 			this->userbox->Name = L"userbox";
 			this->userbox->Size = System::Drawing::Size(233, 22);
 			this->userbox->TabIndex = 0;
+			this->userbox->TextChanged += gcnew System::EventHandler(this, &Login::userbox_TextChanged);
 			// 
 			// passbox
 			// 
@@ -98,12 +96,13 @@ namespace Client {
 			this->passbox->PasswordChar = '*';
 			this->passbox->Size = System::Drawing::Size(233, 22);
 			this->passbox->TabIndex = 0;
+			this->passbox->TextChanged += gcnew System::EventHandler(this, &Login::passbox_TextChanged);
 			// 
 			// tktext
 			// 
 			this->tktext->Font = (gcnew System::Drawing::Font(L"Microsoft Sans Serif", 9.75F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
-			this->tktext->Location = System::Drawing::Point(20, 60);
+			this->tktext->Location = System::Drawing::Point(20, 66);
 			this->tktext->Name = L"tktext";
 			this->tktext->Size = System::Drawing::Size(80, 25);
 			this->tktext->TabIndex = 1;
@@ -122,15 +121,16 @@ namespace Client {
 			// pictureBox1
 			// 
 			this->pictureBox1->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"pictureBox1.Image")));
-			this->pictureBox1->Location = System::Drawing::Point(99, 12);
+			this->pictureBox1->Location = System::Drawing::Point(99, 3);
 			this->pictureBox1->Name = L"pictureBox1";
-			this->pictureBox1->Size = System::Drawing::Size(75, 45);
+			this->pictureBox1->Size = System::Drawing::Size(75, 60);
 			this->pictureBox1->SizeMode = System::Windows::Forms::PictureBoxSizeMode::StretchImage;
 			this->pictureBox1->TabIndex = 3;
 			this->pictureBox1->TabStop = false;
 			// 
 			// button1
 			// 
+			this->button1->Enabled = false;
 			this->button1->Location = System::Drawing::Point(99, 186);
 			this->button1->Name = L"button1";
 			this->button1->Size = System::Drawing::Size(75, 23);
@@ -156,7 +156,7 @@ namespace Client {
 			this->label1->ForeColor = System::Drawing::Color::Red;
 			this->label1->Location = System::Drawing::Point(112, 165);
 			this->label1->Name = L"label1";
-			this->label1->Size = System::Drawing::Size(141, 13);
+			this->label1->Size = System::Drawing::Size(143, 13);
 			this->label1->TabIndex = 6;
 			this->label1->Text = L"Sai tài khoản hoặc mật khẩu";
 			this->label1->Visible = false;
@@ -191,6 +191,7 @@ private: System::Void registation(System::Object^ sender, System::Windows::Forms
 	this->Show();
 	}
 private: System::Void LoginClick(System::Object^ sender, System::EventArgs^ e) {
+	this->button1->Enabled = false;
 	std::string user, pass;
 	this->label1->Visible = false;
 	Sleep(10);
@@ -199,13 +200,30 @@ private: System::Void LoginClick(System::Object^ sender, System::EventArgs^ e) {
 	senddata(socket, Log(user, pass).c_str());
 	std::string respone = revicedata(socket);
 	if (respone == "Accept") {
-		MessageBox::Show("123213");
+		Form^ Go = gcnew Client::Gold(socket, this->userbox->Text);
+		this->Hide();
+		Go->ShowDialog();
+		this->Close();
+	}
+	else if(respone == "Taken") {
+		MessageBox::Show(L"Tài khoản đã đăng nhập tại nơi khác", L"Lỗi xác thực");
 	}
 	else {
 		this->label1->Visible = true;
 	}
+	this->button1->Enabled = true;
+}
+private: System::Void userbox_TextChanged(System::Object^ sender, System::EventArgs^ e) {
+	if (this->userbox->Text->ToString()->Length >= 8 && this->passbox->Text->ToString()->Length >= 8) {
+		this->button1->Enabled = true;
+	}
+	else  this->button1->Enabled = false;
+}
+private: System::Void passbox_TextChanged(System::Object^ sender, System::EventArgs^ e) {
+	if (this->userbox->Text->ToString()->Length >= 8 && this->passbox->Text->ToString()->Length >= 8) {
+		this->button1->Enabled = true;
+	}
+	else  this->button1->Enabled = false;
 }
 };
 }
-#endif // _IPSERVER
-#endif // !_LOGIN

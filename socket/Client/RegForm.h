@@ -1,8 +1,4 @@
-﻿#ifndef _REG
-#define _REG
-
-#ifdef _IPSERVER
-#include "clientSocket.h"
+﻿#include "clientSocket.h"
 
 namespace Client {
 
@@ -268,6 +264,7 @@ private: System::Void textBox1_TextChanged(System::Object^ sender, System::Event
 	else this->checkBoxRepass->Checked = true;
 }
 private: System::Void button1_Click(System::Object^ sender, System::EventArgs^ e) {
+	this->button1->Enabled = false;
 	if (this->checkBoxRepass->Checked == true && this->checkBoxPass->Checked == true && this->checkBoxUser->Checked == true) {
 		std::string user, password;
 		this->label2->Visible = false;
@@ -283,8 +280,7 @@ private: System::Void button1_Click(System::Object^ sender, System::EventArgs^ e
 			this->label2->Visible = true;
 		}
 	}
+	this->button1->Enabled = true;
 }
 };
 }
-#endif // _LOGIN
-#endif // !_REG
